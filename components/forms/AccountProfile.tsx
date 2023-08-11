@@ -15,13 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import * as z from "zod";
-import { ChangeEvent } from "react";
+import { ChangeEvent, useState } from "react";
 import { Textarea } from "../ui/textarea";
-
-const handleImage = (e: ChangeEvent, fieldChange: (value: string) => void) => {
-  //of a type changevent
-  e.preventDefault();
-};
 
 interface Props {
   user: {
@@ -37,6 +32,7 @@ interface Props {
 
 const AccountProfile = ({ user, btnTitle }: Props) => {
   //declare form data
+  const [files, setFiles] = useState<File[]>([]);
 
   const form = useForm({
     resolver: zodResolver(userValidation),
@@ -47,6 +43,27 @@ const AccountProfile = ({ user, btnTitle }: Props) => {
       bio: user?.bio || "",
     },
   });
+
+  const handleImage = (
+    e: ChangeEvent<HTMLInputElement>,
+    fieldChange: (value: string) => void
+  ) => {
+    //of a type changevent
+    e.preventDefault();
+
+    const fileReader = new FileReader();
+    if (e.target.files && e.target.files.length > 1) {
+      const file = e.target.files[0];
+      setFiles(Array.from(e.target.files));
+      if (!file.type.includes("image")) return;
+
+      fileReader.onload = async (event) => {
+        const imageDataUrl = event.target?.result?.toString() || "";
+        fieldChange(imageDataUrl);
+      };
+      fileReader.readAsDataURL(file);
+    }
+  };
 
   function onSubmit(values: z.infer<typeof userValidation>) {
     // Do something with the form values.
