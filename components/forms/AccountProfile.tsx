@@ -17,6 +17,8 @@ import Image from "next/image";
 import * as z from "zod";
 import { ChangeEvent, useState } from "react";
 import { Textarea } from "../ui/textarea";
+import { isBase64Image } from "@/lib/utils";
+import { useUploadThing } from "@/lib/uploadthing";
 
 interface Props {
   user: {
@@ -33,6 +35,7 @@ interface Props {
 const AccountProfile = ({ user, btnTitle }: Props) => {
   //declare form data
   const [files, setFiles] = useState<File[]>([]);
+  const { startUpload } = useUploadThing("media");
 
   const form = useForm({
     resolver: zodResolver(userValidation),
@@ -52,24 +55,35 @@ const AccountProfile = ({ user, btnTitle }: Props) => {
     e.preventDefault();
 
     const fileReader = new FileReader();
-    if (e.target.files && e.target.files.length > 1) {
+    if (e.target.files && e.target.files.length > 0) {
+      //checks if the file exists
+
       const file = e.target.files[0];
       setFiles(Array.from(e.target.files));
       if (!file.type.includes("image")) return;
 
       fileReader.onload = async (event) => {
         const imageDataUrl = event.target?.result?.toString() || "";
-        fieldChange(imageDataUrl);
+        fieldChange(imageDataUrl); //this allows to update the field , since we are using react hook field
       };
-      fileReader.readAsDataURL(file);
+      fileReader.readAsDataURL(file); // allows us to change the image
     }
   };
 
-  function onSubmit(values: z.infer<typeof userValidation>) {
-    // Do something with the form values.
-    // ✅ This will be type-safe and validated.
-    console.log(values);
-  }
+  const onSubmit = async (values: z.infer<typeof userValidation>) => {
+    const blob = values.profile_photo; //value of an image
+    const hasImageChanged = isBase64Image(blob); // this should only happen if an img is reuploaded
+
+    if (hasImageChanged) {
+      const imgRes = await startUpload(files);
+      if (imgRes && imgRes[0].fileUrl) {
+        // check if the img res exists and imgres[0] exists
+        values.profile_photo = imgRes[0].fileUrl;
+      }
+    }
+
+    // TODO: Update user profile
+  };
 
   return (
     <Form {...form}>
