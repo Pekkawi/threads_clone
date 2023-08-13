@@ -76,3 +76,81 @@ export async function fetchPosts(pageNumber = 1, pageSize = 20) {
     throw new Error(`Error creating thread: ${error.message}`);
   }
 }
+
+export async function fetchThreadById(id: string) {
+  connectToDB();
+
+  try {
+    //TO DO POPULATE COMMUNITY
+
+    const thread = await Thread.findById(id)
+      .populate({
+        path: "author",
+        model: User,
+        select: "_id id name image",
+      })
+      .populate({
+        path: "children",
+        populate: [
+          {
+            path: "author",
+            model: User,
+            select: "_id id parentId image",
+          },
+          {
+            path: "children",
+            model: Thread,
+            populate: {
+              path: "author",
+              model: User,
+              select: "_id id name parentId image",
+            },
+          },
+        ],
+      })
+      .exec();
+    return thread;
+  } catch (error: any) {
+    throw new Error(`Error fetching the thread ${error.message}`);
+  }
+}
+
+export async function addCommentToThread(
+  threadId: string, //id of the original thread
+  commentText: string,
+  userId: string, // the id of the user who commented
+  path: string
+) {
+  connectToDB();
+  try {
+    //adding a comment
+    //find original thread by Id
+    const originalThread = await Thread.findById(threadId); // pass in id of the original thread
+
+    if (!originalThread) {
+      throw new Error("Thread not found");
+    }
+
+    //create a new thread with the comment text
+
+    const commentThread = new Thread({
+      text: commentText,
+      author: userId,
+      parentId: threadId,
+    });
+
+    //Save new thread
+    const saveCommentThread = await commentThread.save();
+
+    //update the original thread to include the new comment
+
+    originalThread.children.push(saveCommentThread._id);
+
+    //Save the original thread
+    await originalThread.save();
+
+    revalidatePath(path);
+  } catch (error: any) {
+    throw new Error(`Error adding comment to thread ${error.message}`);
+  }
+}
